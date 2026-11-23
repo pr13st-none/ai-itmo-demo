@@ -1,0 +1,645 @@
+{
+  "name": "ITMO 7.1 · AI Pull Request Review (12 баллов)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "itmo-review-71",
+        "options": {}
+      },
+      "id": "443e9441-9d5a-46a5-863e-8b221e4260b5",
+      "name": "GitHub PR or comment",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        224
+      ],
+      "webhookId": "4a6a33b6-64ba-5753-bd63-6c567594f882"
+    },
+    {
+      "parameters": {
+        "jsCode": "const ev=$input.first().json;const b=ev.body||ev;const action=b.action||'';\nconst comment=String(b.comment?.body||'').trim();\nconst isPr=action==='opened'&&!!b.pull_request;\nconst isCmd=action==='created'&&!!b.issue?.pull_request&&['/make_ai_review','/make_other_ai_review'].includes(comment);\nconst valid=!!(isPr||isCmd)&&!!b.repository?.full_name;\nconst pr=isPr?b.pull_request:b.issue;\nconst number=pr?.number||b.number;\nconst repo=b.repository?.full_name||'';\nconst other=comment==='/make_other_ai_review';\nconst pr_key=repo+'#'+number;\nreturn [{json:{valid,pr_key,repo,number,other,primary:!other,trigger:comment||action,source_action:action}}];"
+      },
+      "id": "3a13132b-8edd-49a8-9ba0-02ac84efda70",
+      "name": "Normalize PR event",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              },
+              "id": "93bad61b-1f2c-4ab1-8012-d92ae69e6ae3"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "951f81c7-c684-404b-ac73-ecf85022e5e2",
+      "name": "Accepted event?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        448,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.primary }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              },
+              "id": "8e3b298b-57e9-4976-b215-efef06cff968"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "56ef46d4-19df-4f85-82f6-1b9686c9e490",
+      "name": "Primary model?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        656,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "rowNotExists",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "reviewed_prs"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "pr_key",
+              "keyValue": "={{ $json.pr_key }}"
+            }
+          ]
+        }
+      },
+      "id": "9fe16e0d-063a-4196-908d-0c3158beb38c",
+      "name": "Stop if primary already reviewed",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        896,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ \"https://api.github.com/repos/\"+$(\"Preserve PR SHA\").first().json.repo+\"/pulls/\"+$(\"Preserve PR SHA\").first().json.number+\"/files?per_page=100\" }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "ITMO-course-n8n"
+            },
+            {
+              "name": "Accept",
+              "value": "application/vnd.github+json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "433a6afc-f7cc-4dc3-9e41-d4c88c68b325",
+      "name": "Fetch PR files",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1104,
+        224
+      ],
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "abiuQLjD30spVM6O",
+          "name": "GitHub ITMO"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const ctx=$('Preserve PR SHA').first().json;\nlet files=$input.all().map(i=>i.json);if(files.length===1&&Array.isArray(files[0]))files=files[0];\nconst hunks=[];let idx=0;\nfor(const f of files){let patch=f.patch||'';if(!patch)continue;\n  const pieces=patch.split(/(?=^@@\\s)/m).filter(s=>s.startsWith('@@'));\n  for(const part of pieces){const m=part.match(/^@@ -(\\d+)(?:,(\\d+))? \\+(\\d+)(?:,(\\d+))? @@/);if(!m)continue;\n    let oldLine=+m[1],newLine=+m[3],anchor=null,side='RIGHT';\n    for(const line of part.split('\\n').slice(1)){\n      if(line.startsWith('+')&&!line.startsWith('+++')){if(anchor===null){anchor=newLine;side='RIGHT'}newLine++}\n      else if(line.startsWith('-')&&!line.startsWith('---')){if(anchor===null){anchor=oldLine;side='LEFT'}oldLine++}\n      else if(!line.startsWith('\\\\')){oldLine++;newLine++}\n    }\n    if(anchor===null)continue;\n    hunks.push({id:++idx,path:f.filename,line:anchor,side,patch:part.slice(0,2400)});\n  }\n}\nif(!hunks.length)throw new Error('No GitHub patches/hunks available; add a small text-file change to PR');\nreturn [{json:{...ctx,hunks,prompt:JSON.stringify(hunks).slice(0,24000)}}];"
+      },
+      "id": "6a3ce65c-b073-4257-82a0-e141c11287cf",
+      "name": "Prepare diff hunks",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1328,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.vsellm.ru/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({model: $(\"Prepare diff hunks\").first().json.other ? \"openai/gpt-4.1-mini\" : \"openai/gpt-4o-mini\",temperature:0.1,messages:[{role:\"system\",content:\"Return valid JSON only, no markdown.\"},{role:\"user\",content:\"Review diff. Output {summary:string, comments:[{id:number,body:string}]}. Exactly one useful comment for EACH hunk id. No fabricated bugs. Hunks: \"+$(\"Prepare diff hunks\").first().json.prompt}]}) }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "e2ea5fc3-4540-4ca7-ad99-988fb1682919",
+      "name": "AI review · two models",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1552,
+        224
+      ],
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "WCNCupLrLEmH195m",
+          "name": "VseLLM ITMO"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const ctx=$('Prepare diff hunks').first().json;let raw=$input.first().json.choices?.[0]?.message?.content||'';\nraw=String(raw).replace(/^```(?:json)?\\s*/,'').replace(/```\\s*$/,'');let obj={};\ntry{obj=JSON.parse(raw)}catch{throw new Error('Model must return JSON: '+raw.slice(0,400))}\nconst byId=new Map((Array.isArray(obj.comments)?obj.comments:[]).map(c=>[Number(c.id),String(c.body||'')]));\nconst comments=ctx.hunks.map(h=>({...h,body:(byId.get(h.id)||'AI reviewed this diff hunk; no clear defect found.').slice(0,5000)}));\nconst summary=String(obj.summary||'Reviewed changed hunks.').slice(0,8000);\nconst comment_body='**AI code review ('+(ctx.other?'second model':'primary model')+')**\\n\\n'+summary+'\\n\\nInline comments: '+comments.length;\nreturn [{json:{...ctx,comment_body,comments}}];"
+      },
+      "id": "0d3246c9-39e4-4cb4-9c62-cfc9386f8d4d",
+      "name": "Parse AI and prepare summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1776,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ \"https://api.github.com/repos/\"+$json.repo+\"/issues/\"+$json.number+\"/comments\" }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "ITMO-course-n8n"
+            },
+            {
+              "name": "Accept",
+              "value": "application/vnd.github+json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({body: $(\"Parse AI and prepare summary\").first().json.comment_body}) }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "114375be-bcaa-4ba2-bbcd-324996ff501f",
+      "name": "Post PR summary",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1984,
+        224
+      ],
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "abiuQLjD30spVM6O",
+          "name": "GitHub ITMO"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const ctx=$('Parse AI and prepare summary').first().json;return ctx.comments.map(c=>({json:{repo:ctx.repo,number:ctx.number,pr_key:ctx.pr_key,path:c.path,line:c.line,side:c.side,body:c.body}}));"
+      },
+      "id": "036dbf66-d079-4452-8d1e-45ee7b670c85",
+      "name": "Prepare inline comments",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2208,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ \"https://api.github.com/repos/\"+$json.repo+\"/pulls/\"+$json.number+\"/comments\" }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "ITMO-course-n8n"
+            },
+            {
+              "name": "Accept",
+              "value": "application/vnd.github+json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({body:$json.body,path:$json.path,line:$json.line,side:$json.side,commit_id:$(\"Prepare diff hunks\").first().json.commit_id}) }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "c4387dc7-49be-46f0-a65b-49e10b790aa1",
+      "name": "Post each inline comment",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2416,
+        224
+      ],
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "abiuQLjD30spVM6O",
+          "name": "GitHub ITMO"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "={{ \"https://api.github.com/repos/\"+$json.repo+\"/pulls/\"+$json.number }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "ITMO-course-n8n"
+            },
+            {
+              "name": "Accept",
+              "value": "application/vnd.github+json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "016a4cd6-eda1-4552-9f9f-72d099f7d5f6",
+      "name": "Fetch PR metadata",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1056,
+        0
+      ],
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "abiuQLjD30spVM6O",
+          "name": "GitHub ITMO"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const ctx=$('Normalize PR event').first().json;const sha=$input.first().json.head?.sha;if(!sha)throw new Error('PR head SHA missing');return [{json:{...ctx,commit_id:sha}}];"
+      },
+      "id": "dafa602c-85f5-488c-ab26-74718bf8a829",
+      "name": "Preserve PR SHA",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1248,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const ctx=$('Parse AI and prepare summary').first().json;return [{json:{pr_key:ctx.pr_key,reviewed_at:new Date().toISOString(),model:ctx.other?'secondary':'primary'}}];"
+      },
+      "id": "751d7010-d334-45be-81b8-768666a3d314",
+      "name": "Collapse successful inline posts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2624,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "reviewed_prs"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "pr_key",
+              "keyValue": "={{ $json.pr_key }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "pr_key": "={{ $json.pr_key }}",
+            "reviewed_at": "={{ $json.reviewed_at }}",
+            "model": "={{ $json.model }}"
+          },
+          "matchingColumns": [
+            "pr_key"
+          ],
+          "schema": [
+            {
+              "id": "pr_key",
+              "displayName": "pr_key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "reviewed_at",
+              "displayName": "reviewed_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "model",
+              "displayName": "model",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "49b4f23c-3c73-49be-8bdd-b211dd290723",
+      "name": "Remember reviewed PR",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        2832,
+        224
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "GitHub PR or comment": {
+      "main": [
+        [
+          {
+            "node": "Normalize PR event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize PR event": {
+      "main": [
+        [
+          {
+            "node": "Accepted event?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stop if primary already reviewed": {
+      "main": [
+        [
+          {
+            "node": "Fetch PR metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch PR metadata": {
+      "main": [
+        [
+          {
+            "node": "Preserve PR SHA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preserve PR SHA": {
+      "main": [
+        [
+          {
+            "node": "Fetch PR files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch PR files": {
+      "main": [
+        [
+          {
+            "node": "Prepare diff hunks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare diff hunks": {
+      "main": [
+        [
+          {
+            "node": "AI review · two models",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI review · two models": {
+      "main": [
+        [
+          {
+            "node": "Parse AI and prepare summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI and prepare summary": {
+      "main": [
+        [
+          {
+            "node": "Post PR summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post PR summary": {
+      "main": [
+        [
+          {
+            "node": "Prepare inline comments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare inline comments": {
+      "main": [
+        [
+          {
+            "node": "Post each inline comment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post each inline comment": {
+      "main": [
+        [
+          {
+            "node": "Collapse successful inline posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collapse successful inline posts": {
+      "main": [
+        [
+          {
+            "node": "Remember reviewed PR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Accepted event?": {
+      "main": [
+        [
+          {
+            "node": "Primary model?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Primary model?": {
+      "main": [
+        [
+          {
+            "node": "Stop if primary already reviewed",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fetch PR metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "43d7bbaa-dc11-4b72-bc0d-927a4ac80fda",
+  "meta": {
+    "instanceId": "a0a9a999b3ebfda0d3ae35e7e652434ce9550830eea0fe7c967365bc66c2b85b"
+  },
+  "nodeGroups": [],
+  "id": "S4f7btBTCJXFh9Ce",
+  "tags": []
+}

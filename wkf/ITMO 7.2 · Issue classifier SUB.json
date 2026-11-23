@@ -1,0 +1,129 @@
+{
+  "name": "ITMO 7.2 · Issue classifier SUB",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "8b7f62ea-7648-4ddd-8da6-87f4d8fc298e",
+      "name": "When executed by another workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const d=$input.first().json;return [{json:{title:String(d.title||''),body:String(d.body||'')}}];"
+      },
+      "id": "10747db8-8a2b-4cd3-9d0e-ef2f0dfe9685",
+      "name": "Make prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.vsellm.ru/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({model:\"openai/gpt-4o-mini\", temperature:0.1, messages:[{role:\"system\",content:\"Return JSON only. Do not include markdown fences.\"},{role:\"user\",content:`Classify this GitHub issue into exactly one type: bug, task, feature. Return JSON {type: string, confidence: number in [0,1]}. If vague or insufficient info use {type:\"unknown\",confidence:0.4}. Issue title: ${$json.title}. Body: ${$json.body}`}]}) }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "480cd319-d5e0-453d-a23f-df2918ce9374",
+      "name": "AI classify",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        448,
+        0
+      ],
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "WCNCupLrLEmH195m",
+          "name": "VseLLM ITMO"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "let raw=String($input.first().json.choices?.[0]?.message?.content||'').replace(/^```(?:json)?\\s*/,'').replace(/```\\s*$/,'');let a={};try{a=JSON.parse(raw)}catch{};\nconst type=['bug','task','feature'].includes(a.type)?a.type:'unknown';const confidence=Math.max(0,Math.min(1,Number(a.confidence)||0));return [{json:{type,confidence}}];"
+      },
+      "id": "dbad286b-0adb-4eeb-82c0-476488d406c6",
+      "name": "Structured response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        656,
+        0
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When executed by another workflow": {
+      "main": [
+        [
+          {
+            "node": "Make prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Make prompt": {
+      "main": [
+        [
+          {
+            "node": "AI classify",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI classify": {
+      "main": [
+        [
+          {
+            "node": "Structured response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "c8ac40e5-c644-4b02-ad8f-8d789e585f37",
+  "meta": {
+    "instanceId": "a0a9a999b3ebfda0d3ae35e7e652434ce9550830eea0fe7c967365bc66c2b85b"
+  },
+  "nodeGroups": [],
+  "id": "Y9in9ItJeNXrgfxq",
+  "tags": []
+}

@@ -1,0 +1,362 @@
+{
+  "name": "ITMO 7.2 · GitHub issue triage (5 баллов)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "itmo-issues-72",
+        "options": {}
+      },
+      "id": "25c541ac-a949-44e8-b21a-3d48e8a2cf5c",
+      "name": "GitHub issues opened",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "fb1e1a0b-d1fc-5c90-b05f-6d4fe4d1c3af"
+    },
+    {
+      "parameters": {
+        "jsCode": "const e=$input.first().json;const b=e.body||e;const valid=b.action==='opened'&&!!b.issue&&!b.issue.pull_request;\nreturn [{json:{valid,repo:b.repository?.full_name||'',number:b.issue?.number,title:b.issue?.title||'',body:b.issue?.body||'',author:b.issue?.user?.login||''}}];"
+      },
+      "id": "94f249f3-7df9-4c41-abc4-03468c822e41",
+      "name": "Normalize issue",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              },
+              "id": "4106511f-0439-4285-b2ec-32390c61c960"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "ec322c63-75ab-4025-9e16-79276248dc24",
+      "name": "Only opened issue?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        448,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "Y9in9ItJeNXrgfxq",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/Y9in9ItJeNXrgfxq",
+          "cachedResultName": "ITMO 7.2 · Issue classifier SUB"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "90c790b3-8d10-4a3d-a1f0-a6c1e3cbf223",
+      "name": "Execute classifier SUB",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        656,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const c=$input.first().json;const ctx=$('Normalize issue').first().json;const valid=['bug','task','feature'].includes(c.type)&&Number(c.confidence)>=0.8;\nreturn [{json:{...ctx,type:c.type||'unknown',confidence:Number(c.confidence)||0,label:valid?c.type:'needs-triage'}}];"
+      },
+      "id": "6966d32c-ef03-462c-9bcf-2915bc6020a4",
+      "name": "Escalation decision",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 1
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.label }}",
+                    "rightValue": "bug",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "bug"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 1
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.label }}",
+                    "rightValue": "task",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "task"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 1
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.label }}",
+                    "rightValue": "feature",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "feature"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 1
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.label }}",
+                    "rightValue": "needs-triage",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "needs-triage"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d8648508-5163-41df-b7b0-ff847202a7bf",
+      "name": "Switch by label",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        1104,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ \"https://api.github.com/repos/\"+$json.repo+\"/issues/\"+$json.number+\"/labels\" }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "ITMO-course-n8n"
+            },
+            {
+              "name": "Accept",
+              "value": "application/vnd.github+json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({labels:[$json.label]}) }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "61c4c8b3-4eb2-47e5-8d37-d58317310026",
+      "name": "Add GitHub label",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1344,
+        0
+      ],
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "abiuQLjD30spVM6O",
+          "name": "GitHub ITMO"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "GitHub issues opened": {
+      "main": [
+        [
+          {
+            "node": "Normalize issue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize issue": {
+      "main": [
+        [
+          {
+            "node": "Only opened issue?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Only opened issue?": {
+      "main": [
+        [
+          {
+            "node": "Execute classifier SUB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute classifier SUB": {
+      "main": [
+        [
+          {
+            "node": "Escalation decision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Escalation decision": {
+      "main": [
+        [
+          {
+            "node": "Switch by label",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch by label": {
+      "main": [
+        [
+          {
+            "node": "Add GitHub label",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Add GitHub label",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Add GitHub label",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Add GitHub label",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "fd4b1b60-bc92-4838-82ca-6ec86f2eb6f0",
+  "meta": {
+    "instanceId": "a0a9a999b3ebfda0d3ae35e7e652434ce9550830eea0fe7c967365bc66c2b85b"
+  },
+  "nodeGroups": [],
+  "id": "gHYkVtW6AX47Bsx4",
+  "tags": []
+}

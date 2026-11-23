@@ -1,0 +1,648 @@
+{
+  "name": "ITMO 7.2 · Weekly stats, delta and AI email (11 баллов)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * MON"
+            }
+          ]
+        }
+      },
+      "id": "565dc7d8-99d9-45d8-882c-4355a3feef3c",
+      "name": "Every Monday 09:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        144,
+        -96
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "6ad75ec2-16c8-4946-9b83-11fab5b0cbe6",
+      "name": "Manual demo",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        144,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const d=new Date();const lastMon=new Date(d.getTime()-7*86400000);const prevMon=new Date(d.getTime()-14*86400000);\nreturn [{json:{start:lastMon.toISOString(),end:d.toISOString(),prev_start:prevMon.toISOString(),week:lastMon.toISOString().slice(0,10),previous_week:prevMon.toISOString().slice(0,10)}}];"
+      },
+      "id": "79063d9c-9f36-47da-a66e-6fb4f04009f1",
+      "name": "Week bounds",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        352,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.github.com/repos/pr13st-none/ai-itmo-demo/issues?state=all&per_page=100&since={{ $json.start }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "ITMO-course-n8n"
+            },
+            {
+              "name": "Accept",
+              "value": "application/vnd.github+json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "c00e2203-45f2-4011-91c3-ebaf5d56db74",
+      "name": "GH 1 issues updated",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        592,
+        0
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "abiuQLjD30spVM6O",
+          "name": "GitHub ITMO"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://api.github.com/repos/pr13st-none/ai-itmo-demo/issues?state=closed&per_page=100&since={{ $(\"Week bounds\").first().json.start }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "ITMO-course-n8n"
+            },
+            {
+              "name": "Accept",
+              "value": "application/vnd.github+json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "f70ab6c6-1c05-4cec-b403-64d9be3ed439",
+      "name": "GH 2 closed issues",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        816,
+        0
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "abiuQLjD30spVM6O",
+          "name": "GitHub ITMO"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://api.github.com/repos/pr13st-none/ai-itmo-demo/issues/comments?per_page=100&since={{ $(\"Week bounds\").first().json.start }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "ITMO-course-n8n"
+            },
+            {
+              "name": "Accept",
+              "value": "application/vnd.github+json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "21e0c763-0cc9-43b1-9b2b-b02d95deaeda",
+      "name": "GH 3 issue comments",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1040,
+        0
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "abiuQLjD30spVM6O",
+          "name": "GitHub ITMO"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://api.github.com/repos/pr13st-none/ai-itmo-demo/pulls?state=all&per_page=100",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "ITMO-course-n8n"
+            },
+            {
+              "name": "Accept",
+              "value": "application/vnd.github+json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "1e61b00d-91c5-4ab1-bcea-59eae6c254f5",
+      "name": "GH 4 pull requests",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1248,
+        0
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "abiuQLjD30spVM6O",
+          "name": "GitHub ITMO"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{next:true}}];"
+      },
+      "id": "303fcbbe-550a-46ee-a0b2-c92b20d55f04",
+      "name": "Collapse 1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        656,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{next:true}}];"
+      },
+      "id": "36016478-5c3e-471d-8b41-8beaabf3502f",
+      "name": "Collapse 2",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{next:true}}];"
+      },
+      "id": "ecf5d0bc-0093-4bd3-a686-f4700a252f24",
+      "name": "Collapse 3",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1088,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{next:true}}];"
+      },
+      "id": "2fca9da7-7abd-4f20-bed3-9acd82806a13",
+      "name": "Collapse 4",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1312,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const bounds=$('Week bounds').first().json;\nconst items=$(\"GH 1 issues updated\").all().map(i=>i.json).flatMap(j=>Array.isArray(j)?j:[j]);\nconst issues=items.filter(j=>j?.number&&!j.pull_request&&new Date(j.created_at)>=new Date(bounds.start)&&new Date(j.created_at)<new Date(bounds.end));\nconst types={bug:0,task:0,feature:0,'needs-triage':0,other:0},authors={},states={open:0,closed:0};\nfor(const it of issues){const ty=it.labels?.map(x=>typeof x==='string'?x:x.name).find(x=>['bug','task','feature','needs-triage'].includes(x))||'other';types[ty]++;authors[it.user?.login||'unknown']=(authors[it.user?.login||'unknown']||0)+1;states[it.state==='closed'?'closed':'open']++;}\nconst count=(name)=>$(name).all().map(i=>i.json).flatMap(j=>Array.isArray(j)?j:[j]).filter(j=>j?.id).length;\nreturn [{json:{...bounds,total:issues.length,types,authors,states,closed_events:count('GH 2 closed issues'),comments:count('GH 3 issue comments'),prs:count('GH 4 pull requests')}}];"
+      },
+      "id": "4149fcf0-6ad3-4d0f-b83b-be037943205a",
+      "name": "Group weekly stats",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1488,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "weekly_issue_stats"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "week",
+              "keyValue": "={{ $json.previous_week }}"
+            }
+          ]
+        }
+      },
+      "id": "996d4058-1b7a-4aa9-8763-a84e401ed3a8",
+      "name": "Previous week row",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1728,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const s=$('Group weekly stats').first().json;let previous={total:0,types:{},authors:{},states:{}};const row=$input.first().json;\ntry{if(row.summary)previous=JSON.parse(row.summary)}catch{}\nconst delta={total:s.total-(previous.total||0),types:{}};for(const k of Object.keys(s.types))delta.types[k]=s.types[k]-(previous.types?.[k]||0);\nreturn [{json:{...s,previous,delta}}];"
+      },
+      "id": "ffa16392-2608-4453-97af-6930bb558230",
+      "name": "Calculate delta",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1952,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.vsellm.ru/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({model:\"openai/gpt-4o-mini\",temperature:0.2,messages:[{role:\"system\",content:\"Write only 2-3 concise Russian sentences with factual observations, no JSON.\"},{role:\"user\",content:\"Comment on this weekly statistics and week-over-week delta without inventing causes: \"+JSON.stringify($json)}]}) }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "42f5509c-b01a-41cb-b5a3-73cfd0c6876a",
+      "name": "AI weekly annotation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2160,
+        0
+      ],
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "WCNCupLrLEmH195m",
+          "name": "VseLLM ITMO"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const s=$('Calculate delta').first().json;let ai=String($input.first().json.choices?.[0]?.message?.content||'').slice(0,3000);\nconst escape=t=>String(t).replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',\"'\":'&#39;'}[c]));\nconst rows=Object.entries(s.types).map(([t,n])=>'<tr><td>'+escape(t)+'</td><td>'+n+'</td><td>'+((s.delta.types[t]>0?'+':'')+s.delta.types[t])+'</td></tr>').join('');\nconst auth=Object.entries(s.authors).sort((a,b)=>b[1]-a[1]).map(([a,n])=>'<tr><td>'+escape(a)+'</td><td>'+n+'</td></tr>').join('')||'<tr><td colspan=\"2\">Нет новых Issues</td></tr>';\nconst html='<html><body style=\"font-family:Arial,sans-serif;max-width:680px;margin:28px auto;color:#222\"><h1>GitHub Issues — недельный отчёт</h1><p>Неделя: '+s.week+'</p><p><b>Новых Issues: '+s.total+' (Δ '+(s.delta.total>0?'+':'')+s.delta.total+')</b></p><h2>По типам</h2><table border=\"1\" cellspacing=\"0\" cellpadding=\"8\"><tr><th>Тип</th><th>Всего</th><th>Δ</th></tr>'+rows+'</table><h2>По авторам</h2><table border=\"1\" cellspacing=\"0\" cellpadding=\"8\"><tr><th>Автор</th><th>Issues</th></tr>'+auth+'</table><p>Открытых: '+s.states.open+' · Закрытых: '+s.states.closed+'</p><h2>AI-комментарий недели</h2><p>'+escape(ai)+'</p></body></html>';\nreturn [{json:{...s,ai,html,summary:JSON.stringify({total:s.total,types:s.types,authors:s.authors,states:s.states})}}];"
+      },
+      "id": "2e3f4596-e143-485c-9411-89080d9fc243",
+      "name": "Build HTML report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2384,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const s=$input.first().json;return [{json:{...s}}];"
+      },
+      "id": "a25df0e5-ac50-4a0b-99b3-8bcda5a907b4",
+      "name": "Prepare Data Table row",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2592,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "weekly_issue_stats"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "week",
+              "keyValue": "={{ $json.week }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "week": "={{ $json.week }}",
+            "summary": "={{ $json.summary }}"
+          },
+          "matchingColumns": [
+            "week"
+          ],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "f064441a-f003-4d62-89e7-90bc5d834f37",
+      "name": "Save current week",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        2832,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "unknown.letter.1337@gmail.com",
+        "subject": "={{ \"ITMO GitHub weekly stats · \"+$(\"Build HTML report\").first().json.week }}",
+        "message": "={{ $(\"Build HTML report\").first().json.html }}",
+        "options": {}
+      },
+      "id": "cbf00ee3-80eb-40a7-9155-4865c5b0b594",
+      "name": "Gmail HTML report",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        3040,
+        0
+      ],
+      "webhookId": "49f4c371-e3cd-4bd3-8b99-75af79dfa55b",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "fiYkjH9lwQtJ8u4d",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Every Monday 09:00": {
+      "main": [
+        [
+          {
+            "node": "Week bounds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual demo": {
+      "main": [
+        [
+          {
+            "node": "Week bounds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Week bounds": {
+      "main": [
+        [
+          {
+            "node": "GH 1 issues updated",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GH 1 issues updated": {
+      "main": [
+        [
+          {
+            "node": "Collapse 1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collapse 1": {
+      "main": [
+        [
+          {
+            "node": "GH 2 closed issues",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GH 2 closed issues": {
+      "main": [
+        [
+          {
+            "node": "Collapse 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collapse 2": {
+      "main": [
+        [
+          {
+            "node": "GH 3 issue comments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GH 3 issue comments": {
+      "main": [
+        [
+          {
+            "node": "Collapse 3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collapse 3": {
+      "main": [
+        [
+          {
+            "node": "GH 4 pull requests",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GH 4 pull requests": {
+      "main": [
+        [
+          {
+            "node": "Collapse 4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collapse 4": {
+      "main": [
+        [
+          {
+            "node": "Group weekly stats",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Group weekly stats": {
+      "main": [
+        [
+          {
+            "node": "Previous week row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Previous week row": {
+      "main": [
+        [
+          {
+            "node": "Calculate delta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate delta": {
+      "main": [
+        [
+          {
+            "node": "AI weekly annotation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI weekly annotation": {
+      "main": [
+        [
+          {
+            "node": "Build HTML report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build HTML report": {
+      "main": [
+        [
+          {
+            "node": "Prepare Data Table row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Data Table row": {
+      "main": [
+        [
+          {
+            "node": "Save current week",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save current week": {
+      "main": [
+        [
+          {
+            "node": "Gmail HTML report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "b86913a2-32be-426e-b9ac-58d276fc9337",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "a0a9a999b3ebfda0d3ae35e7e652434ce9550830eea0fe7c967365bc66c2b85b"
+  },
+  "nodeGroups": [],
+  "id": "aQNxKR9VbIN41YWJ",
+  "tags": []
+}

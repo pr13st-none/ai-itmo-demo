@@ -1,0 +1,165 @@
+{
+  "name": "ITMO 8 · Frontend create GitHub Issue via n8n",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "itmo-create-issue",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "c0c376c6-97cc-49cd-a35a-b9b2b4724f9c",
+      "name": "POST from frontend",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "6aaf10fe-5394-5ba6-9bd9-8f3970f1166c"
+    },
+    {
+      "parameters": {
+        "jsCode": "const e=$input.first().json;const x=e.body||e;const title=String(x.title||'').trim();const body=String(x.body||'').trim();\nif(title.length<8||title.length>120||body.length<20||body.length>5000)throw new Error('Invalid issue title/body');\nreturn [{json:{title,body}}];"
+      },
+      "id": "273d875f-773b-452d-be15-d11bc8cac4d4",
+      "name": "Validate frontend input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.github.com/repos/pr13st-none/ai-itmo-demo/issues",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "ITMO-course-n8n"
+            },
+            {
+              "name": "Accept",
+              "value": "application/vnd.github+json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({title:$json.title,body:$json.body}) }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "3019fe5a-76ba-4a06-bb84-36bc7bc50308",
+      "name": "Create real GitHub Issue",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        448,
+        0
+      ],
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "abiuQLjD30spVM6O",
+          "name": "GitHub ITMO"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const i=$input.first().json;return [{json:{ok:true,issue:{number:i.number,title:i.title,url:i.html_url,state:i.state||'open'}}}];"
+      },
+      "id": "5e54993b-77bd-4122-907e-134e24ac5fa0",
+      "name": "Format API response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        656,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseCode": 201
+        }
+      },
+      "id": "fa68c429-ab35-4789-8c44-c72653f3e908",
+      "name": "Respond to browser",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        880,
+        0
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "POST from frontend": {
+      "main": [
+        [
+          {
+            "node": "Validate frontend input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate frontend input": {
+      "main": [
+        [
+          {
+            "node": "Create real GitHub Issue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create real GitHub Issue": {
+      "main": [
+        [
+          {
+            "node": "Format API response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format API response": {
+      "main": [
+        [
+          {
+            "node": "Respond to browser",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "ffbb7c8d-b465-461e-8eaa-335224b6e673",
+  "meta": {
+    "instanceId": "a0a9a999b3ebfda0d3ae35e7e652434ce9550830eea0fe7c967365bc66c2b85b"
+  },
+  "nodeGroups": [],
+  "id": "Ukg3W8pgewEIjrW6",
+  "tags": []
+}
