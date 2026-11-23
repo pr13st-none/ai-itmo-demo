@@ -1,6 +1,6 @@
 def tax_rate(country):
     if country == 'RU':
-        return 0.20
+        return 0.22
     return 0.10
 
 
@@ -12,7 +12,7 @@ def tax_rate(country):
 def calculate_total(items):
     total = 0
     for item in items:
-        total += item['price']
+        total += item['price'] * item.get('quantity', 1)
     return total
 
 
@@ -22,4 +22,4 @@ def calculate_total(items):
 
 
 def normalize_email(email):
-    return email
+    return email.strip().lower()
